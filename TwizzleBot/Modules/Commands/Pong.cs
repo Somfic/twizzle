@@ -2,14 +2,13 @@
 using System.Threading.Tasks;
 using Discord.Commands;
 
-namespace TwizzleBot.Modules.Commands
+namespace TwizzleBot.Modules.Commands;
+
+public class Pong : ModuleBase<SocketCommandContext>
 {
-    public class Pong : ModuleBase<SocketCommandContext>
+    [Command("ping")]
+    public async Task PingAsync()
     {
-        [Command("ping")]
-        public async Task PingAsync()
-        {
-            await ReplyAsync("Pong!");
-        }
+        await ReplyAsync("Pong!");
     }
 }

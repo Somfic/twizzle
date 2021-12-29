@@ -6,82 +6,81 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using SpotifyAPI.Web;
 
-namespace TwizzleBot.Grabber
+namespace TwizzleBot.Grabber;
+
+public class SpotifyGrabber
 {
-    public class SpotifyGrabber
+    private readonly ILogger<SpotifyGrabber> _log;
+    private readonly IConfiguration _config;
+    private SpotifyClient _spotify;
+
+    public SpotifyGrabber(ILogger<SpotifyGrabber> log, IConfiguration config)
     {
-        private readonly ILogger<SpotifyGrabber> _log;
-        private readonly IConfiguration _config;
-        private SpotifyClient _spotify;
+        _log = log;
+        _config = config;
+        _spotify = new SpotifyClient(config["Spotify:Token"]);
+    }
 
-        public SpotifyGrabber(ILogger<SpotifyGrabber> log, IConfiguration config)
-        {
-            _log = log;
-            _config = config;
-            _spotify = new SpotifyClient(config["Spotify:Token"]);
-        }
-
-        public async Task Authenticate()
-        {
-            var config = SpotifyClientConfig.CreateDefault();
+    public async Task Authenticate()
+    {
+        var config = SpotifyClientConfig.CreateDefault();
             
-            var authRequest = new ClientCredentialsRequest(_config["Spotify:Identifier"], _config["Spotify:Token"]);
-            var response = await new OAuthClient(config).RequestToken(authRequest);
+        var authRequest = new ClientCredentialsRequest(_config["Spotify:Identifier"], _config["Spotify:Token"]);
+        var response = await new OAuthClient(config).RequestToken(authRequest);
 
-            _spotify = new SpotifyClient(config.WithToken(response.AccessToken));
-        }
+        _spotify = new SpotifyClient(config.WithToken(response.AccessToken));
+    }
 
-        public async Task<IReadOnlyCollection<FullTrack>> Search(string query)
-        {
-            _log.LogDebug("Querying Spotify for query '{Query}'", query);
+    public async Task<IReadOnlyCollection<FullTrack>> Search(string query)
+    {
+        _log.LogDebug("Querying Spotify for query '{Query}'", query);
             
-            var result = await _spotify.Search.Item(new SearchRequest(SearchRequest.Types.Track, query));
+        var result = await _spotify.Search.Item(new SearchRequest(SearchRequest.Types.Track, query));
 
-            if (result.Tracks.Total == 0)
-            {
-                throw new Exception($"Could not find any Spotify matches for query '{query}'.");
-            }
-            
-            _log.LogTrace("Found {Count} Spotify matches for query '{Query}'", result.Tracks.Total, query);
-
-            return result.Tracks.Items;
-        }
-
-        public async Task<Paging<PlaylistTrack<IPlayableItem>>> GetPlaylist(FullPlaylist playlist, int offset)
+        if (result.Tracks.Total == 0)
         {
-            return await _spotify.Playlists.GetItems(playlist.Id, new PlaylistGetItemsRequest { Offset = offset });
+            throw new Exception($"Could not find any Spotify matches for query '{query}'.");
         }
+            
+        _log.LogTrace("Found {Count} Spotify matches for query '{Query}'", result.Tracks.Total, query);
+
+        return result.Tracks.Items;
+    }
+
+    public async Task<Paging<PlaylistTrack<IPlayableItem>>> GetPlaylist(FullPlaylist playlist, int offset)
+    {
+        return await _spotify.Playlists.GetItems(playlist.Id, new PlaylistGetItemsRequest { Offset = offset });
+    }
         
-        public async Task<FullPlaylist> GetPlaylist(Uri playlistUri)
-        {
-            var match = Regex.Match(playlistUri.ToString(), @"/playlist/([^?]+)");
+    public async Task<FullPlaylist> GetPlaylist(Uri playlistUri)
+    {
+        var match = Regex.Match(playlistUri.ToString(), @"/playlist/([^?]+)");
 
-            if (!match.Success) {
-                throw new Exception($"Invalid Spotify playlist URI '{playlistUri}'.");
-            }
+        if (!match.Success) {
+            throw new Exception($"Invalid Spotify playlist URI '{playlistUri}'.");
+        }
             
-            var playlistId = match.Groups[1].Value;
-            return await _spotify.Playlists.Get(playlistId);
-        }
+        var playlistId = match.Groups[1].Value;
+        return await _spotify.Playlists.Get(playlistId);
+    }
 
-        public async Task<FullArtist> GetArtist(FullTrack track)
-        {
-            return await _spotify.Artists.Get(track.Artists[0].Id);
-        }
+    public async Task<FullArtist> GetArtist(FullTrack track)
+    {
+        return await _spotify.Artists.Get(track.Artists[0].Id);
+    }
 
-        public async Task<TrackAudioAnalysis> GetAnalysis(FullTrack current)
-        {
-            return await _spotify.Tracks.GetAudioAnalysis(current.Id);
-        }
+    public async Task<TrackAudioAnalysis> GetAnalysis(FullTrack current)
+    {
+        return await _spotify.Tracks.GetAudioAnalysis(current.Id);
+    }
 
-        public async Task<TrackAudioFeatures> GetFeatures(FullTrack current)
-        {
-            return await _spotify.Tracks.GetAudioFeatures(current.Id);
-        }
+    public async Task<TrackAudioFeatures> GetFeatures(FullTrack current)
+    {
+        return await _spotify.Tracks.GetAudioFeatures(current.Id);
+    }
 
-        public async Task<PublicUser> GetUser(PublicUser owner)
-        {
-            return await _spotify.UserProfile.Get(owner.Id);
-        }
+    public async Task<PublicUser> GetUser(PublicUser owner)
+    {
+        return await _spotify.UserProfile.Get(owner.Id);
     }
 }

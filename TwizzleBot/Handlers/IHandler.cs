@@ -1,10 +1,9 @@
 ﻿using System.Reflection;
 using System.Threading.Tasks;
 
-namespace TwizzleBot.Handlers
+namespace TwizzleBot.Handlers;
+
+public interface IHandler
 {
-    public interface IHandler
-    {
-        Task Register(Assembly assembly);
-    }
+    Task Register(Assembly assembly);
 }
