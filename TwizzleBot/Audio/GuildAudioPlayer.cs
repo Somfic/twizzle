@@ -148,7 +148,7 @@ public class GuildAudioPlayer
 
     public async Task Queue(IEnumerable<FullTrack> tracks)
     {
-        var tasks = tracks.Select(Queue).ToArray();
+        var tasks = tracks.Select(x => Queue(x, false)).ToArray();
 
         await Task.WhenAny(tasks);
         
@@ -178,7 +178,7 @@ public class GuildAudioPlayer
         await UpdateUi();
     }
 
-    public async Task Queue(FullTrack track)
+    public async Task Queue(FullTrack track, bool autoPlay = true)
     {
         try
         {
@@ -191,6 +191,12 @@ public class GuildAudioPlayer
             _activeLoadedTracks++;
 
             Player.Queue.Enqueue(youtubeTrack);
+            
+            if (Player.PlayerState != PlayerState.Playing && autoPlay)
+            {
+                _log.LogInformation("Starting to play");
+                await OnTrackEnded(new TrackEndedEventArgs());
+            }
         }
         catch (Exception ex)
         {
