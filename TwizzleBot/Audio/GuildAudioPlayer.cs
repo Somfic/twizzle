@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
@@ -36,7 +37,7 @@ public class GuildAudioPlayer
 
     private IUserMessage _message;
 
-    private IDictionary<string, FullTrack> _tracks = new Dictionary<string, FullTrack>();
+    private IDictionary<string, FullTrack> _tracks = new ConcurrentDictionary<string, FullTrack>();
 
     private FullPlaylist _activeLoadingPlaylist;
     private int _activeLoadedTracks;
@@ -145,40 +146,56 @@ public class GuildAudioPlayer
         await UpdateUi();
     }
 
-    public async Task Queue(params FullTrack[] tracks)
+    public async Task Queue(IEnumerable<FullTrack> tracks)
     {
-        var isFirst = true;
-            
-        foreach (var track in tracks)
+        var tasks = tracks.Select(Queue).ToArray();
+
+        await Task.WhenAny(tasks);
+        
+        if (Player.PlayerState != PlayerState.Playing)
+        {
+            _log.LogInformation("Starting to play");
+            await OnTrackEnded(new TrackEndedEventArgs());
+        }
+
+        await Task.Run(async () =>
+        {
+            while (tasks.Any(x => !x.IsCompleted))
+            {
+                if (_lastLoadUpdate < DateTime.Now.AddSeconds(-1))
+                {
+                    _log.LogInformation("Updating queue");
+                    await UpdateUi();
+                    _lastLoadUpdate = DateTime.Now;
+                }
+            }
+        });
+
+        await Task.WhenAll(tasks);
+
+        _log.LogInformation("Added all tracks to queue");
+
+        await UpdateUi();
+    }
+
+    public async Task Queue(FullTrack track)
+    {
+        try
         {
             var youtubeTracks = await _youtube.Search($"{track.Name} {track.Artists[0].Name} official");
             var youtubeTrack = youtubeTracks.First();
 
             if (!_tracks.ContainsKey(youtubeTrack.Id))
                 _tracks.Add(youtubeTrack.Id, track);
-                
+
             _activeLoadedTracks++;
-                
-            if(_lastLoadUpdate < DateTime.Now.AddSeconds(-2.5))
-            {
-                await UpdateUi();
-                _lastLoadUpdate = DateTime.Now;
-            }
 
             Player.Queue.Enqueue(youtubeTrack);
-
-            if (isFirst && Player.PlayerState != PlayerState.Playing)
-            {
-                _log.LogInformation("Starting to play");
-                await OnTrackEnded(new TrackEndedEventArgs());
-            }
-
-            isFirst = false;
         }
-
-        _log.LogInformation("Added all tracks to queue");
-
-        await UpdateUi();
+        catch (Exception ex)
+        {
+            _log.LogWarning(ex, "Could not queue {Track} by {Artist}", track.Name, track.Artists[0].Name);
+        }
     }
 
     public async Task Play(LavaTrack track)
