@@ -487,7 +487,7 @@ public class GuildAudioPlayer
                 page = $"{_queuePage + 1} / {Math.Ceiling(Player.Queue.Count / (double) _queueItemsPerPage)}  ·  ";
             }
                 
-            queue.WithFooter($"{Player.Queue.Count} tracks  ·  {page}{Math.Floor(totalDuration.TotalHours)}:{totalDuration.Minutes}:{totalDuration.Seconds}");
+            queue.WithFooter($"{Player.Queue.Count} tracks  ·  {page}{Math.Floor(totalDuration.TotalHours)}:{totalDuration.Minutes:00}:{totalDuration.Seconds:00}");
         }
 
         var embeds = new List<Embed>();
