@@ -1,15 +1,35 @@
-# twizzle
+# twizzle bot
 
-Created with [create-ts-pro](https://github.com/Milo123459/create-ts-pro)
+music 'n stuff
 
-# create-ts-pro
+## Configuration
 
-Features:
+Application is configured using `appsettings.json`.
 
-* Yarn PnP
-* Husky config
-* Good defaults
-* Linters
-* Yarn bump command
-* Bump plugin & TypeScript plugin
-* Cool build / bundle commands (yarn.build)
+### Example configuration
+```json
+{
+    "Logging": {
+        "LogLevel": {
+            "Default": "Trace",
+            "Microsoft": "Information"
+        }
+    },
+    
+    "Discord": {
+        "Identifier": "<discord id>",
+        "Token": "<discord token>",
+        
+        "IsDev": true,
+        "DevGuildId": 703334117424496706,
+        
+        "Prefix": "!",
+        "ItemsPerPage": 12
+    },
+    
+    "Spotify": {
+        "Identifier": "<spotify id>",
+        "Token": "<spotify token>"
+    }
+}
+```
