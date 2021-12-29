@@ -1,10 +1,7 @@
-dist
-.yarn/*
-.yarn/cache
-.yarn/releases
-.yarn/plugins
-.yarn/sdks
-.yarn/versions
-.env
-node_modules
-temp
+bin/
+obj/
+/packages/
+riderModule.iml
+/_ReSharper.Caches/
+*.log
+TwizzleBot/appsettings.json
