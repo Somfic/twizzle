@@ -9,10 +9,11 @@ import {
 	VoiceConnection,
 	VoiceConnectionStatus,
 } from '@discordjs/voice';
-import { Collection, Guild, VoiceChannel } from 'discord.js';
+import { ButtonInteraction, Collection, Guild, Interaction, Message, VoiceChannel } from 'discord.js';
 import fs, { createReadStream, ReadStream } from 'fs';
 import { Channel, Video } from 'scrape-youtube/lib/interface';
 import ytdl from 'ytdl-core';
+import { buildQueue } from '../commands/slash/music/Queue';
 import { YouTubeSearcher } from '../youtube/YouTube';
 import { Bot } from './Client';
 
@@ -37,9 +38,13 @@ class Player {
 	private connection: VoiceConnection;
 
 	private queuedSongs: Song[] = [];
+	private currentSong: Song;
+	private queueMessage: Message;
 
 	private client: Bot;
 	private guild: Guild;
+
+	private isPaused: boolean = false;
 
 	constructor(client: Bot, guild: Guild) {
 		this.client = client;
@@ -73,51 +78,120 @@ class Player {
 		}
 	}
 
-	private async playNextSong() {
-		const song = this.queuedSongs.shift();
+	public getIsPaused(): boolean {
+		return this.isPaused;
+	}
 
-		if (song !== undefined) {
-			this.client.logger.debug(`Moved to ${song.title} in ${this.guild.name}`);
-			if (!(await this.playSong(song))) {
-				this.queuedSongs.unshift(song);
+	public getQueueMessage(): Message {
+		return this.queueMessage;
+	}
+
+	public setQueueMessage(message: Message) {
+		if(this.queueMessage != undefined) {
+			this.queueMessage.delete();
+		}
+
+		this.queueMessage = message;
+	}
+
+	private async playNextSong() {	
+		this.currentSong = this.queuedSongs.shift();
+
+		if (this.currentSong !== undefined) {
+			this.client.logger.debug(`Moved to ${this.currentSong.title} in ${this.guild.name}`);
+			if (!(await this.playSong(this.currentSong))) {
+				this.queuedSongs.unshift(this.currentSong);
 				this.client.logger.debug(
-					`Could not play ${song.title}, put it back in queue in ${this.guild.name}`
+					`Could not play ${this.currentSong.title}, put it back in queue in ${this.guild.name}`
 				);
+				this.currentSong = undefined;
+			} else {
+				// Download next song in queue
+				if(this.queuedSongs.length > 0) {
+					if (this.queuedSongs[0].searchQuery !== undefined) {
+						const videos = await searcher.query(this.queuedSongs[0].searchQuery);
+						this.queuedSongs[0] = videos[0] as Song;
+					}
+
+					this.client.logger.debug(`Precaching next song ${this.queuedSongs[0].title} in ${this.guild.name}`);
+					this.getAudioStream(this.queuedSongs[0], this.client.config.tempPath);
+				}
 			}
 		} else {
 			this.client.logger.debug(`Moved through queue in ${this.guild.name}`);
 		}
+
+		await this.updateUi();
 	}
 
-	public pause() {
+	private async updateUi() {
+		if(this.queueMessage !== undefined) {
+			this.client.logger.debug(`Updating queue UI in ${this.guild.name}`);
+
+			const {embeds, row} = buildQueue(this.client, this.guild);
+        	await this.queueMessage.edit({ embeds: embeds, components: [row] });
+		}
+	}
+
+	public async pause() {
         this.createPlayer();
 		this.client.logger.debug(`Pausing audio playback in ${this.guild.name}`);
+		this.isPaused = true;
 		this.audioPlayer.pause();
+
+		await this.updateUi();
 	}
 
-	public resume() {
+	public async resume() {
 		this.client.logger.debug(`Resuming audio playback in ${this.guild.name}`);
+		this.isPaused = false;
 		this.audioPlayer.unpause();
-		this.play();
+		await this.play();
+
+		await this.updateUi();
 	}
 
-	public skip() {
-        this.stop();
-		this.play();
+	public async skip() {
+        this.createPlayer();
+		this.client.logger.debug(`Skipping audio playback in ${this.guild.name}`);
+		this.audioPlayer.stop();
+		await this.play();
+
+		await this.updateUi();
 	}
 
-    public stop() {
+    public async stop() {
         this.createPlayer();
 		this.client.logger.debug(`Stopping audio playback in ${this.guild.name}`);
 		this.audioPlayer.stop();
+
+		await this.updateUi();
 	}
 
-	public clearQueue() {
+	public async clearQueue() {
 		this.client.logger.debug(`Clearing audio queue in ${this.guild.name}`);
 		this.queuedSongs = [];
+
+		await this.updateUi();
 	}
 
-	public queueSong(song: Song) {
+	public async queueSongs(songs: Song[]) {
+		for (let index = 0; index < songs.length; index++) {
+			const song = songs[index];
+			if (song.searchQuery == undefined) {
+				this.client.logger.debug(`Queuing ${song.title} in ${this.guild.name}`);
+			} else {
+				this.client.logger.debug(
+					`Lazy queing ${song.searchQuery} in ${this.guild.name}`
+				);
+			}
+			this.queuedSongs.push(song);	
+		}
+
+		await this.updateUi();
+	}
+
+	public async queueSong(song: Song) {
 		if (song.searchQuery == undefined) {
 			this.client.logger.debug(`Queuing ${song.title} in ${this.guild.name}`);
 		} else {
@@ -126,6 +200,12 @@ class Player {
 			);
 		}
 		this.queuedSongs.push(song);
+
+		await this.updateUi();
+	}
+
+	public getCurrentSong(): Song {
+		return this.currentSong;
 	}
 
 	public isConnected(): boolean {
@@ -135,13 +215,15 @@ class Player {
 		);
 	}
 
-	public leaveChannel() {
+	public async leaveChannel() {
         this.audioPlayer.stop();
         this.audioPlayer = undefined;
 		if (this.connection !== undefined) {
 			this.client.logger.debug(`Leaving audio channel in ${this.guild.name}`);
 			this.connection.destroy();
 		}
+
+		await this.updateUi();
 	}
 
 	public getQueuedSongs(): Song[] {
@@ -156,12 +238,14 @@ class Player {
 		);
 	}
 
-	public shuffle() {
+	public async shuffle() {
 		this.client.logger.debug(`Shuffling queue in ${this.guild.name}`);
 		this.queuedSongs = this.queuedSongs.sort(() => Math.random() - 0.5);
+
+		await this.updateUi();
 	}
 
-	public joinChannel(channel: VoiceChannel) {
+	public async joinChannel(channel: VoiceChannel) {
 		this.client.logger.debug(
 			`Joining audio channel ${channel.name} in ${this.guild.name}`
 		);
@@ -177,6 +261,8 @@ class Player {
 		this.connection.once(VoiceConnectionStatus.Ready, () => {
 			this.play();
 		});
+
+		await this.updateUi();
 	}
 
 	private async playSong(song: Song): Promise<boolean> {
@@ -186,7 +272,7 @@ class Player {
 		}
 
 		this.client.logger.debug(
-			`Getting stream for ${song.title} in ${this.guild.name}`
+			`Getting stream for ${song.title} in ${this.guild.name} (${song.searchQuery})`
 		);
 
 		// Get the song's audio stream
@@ -229,7 +315,7 @@ class Player {
 
 			// If not, download the song
 			else {
-				this.client.logger.debug(`Downloading audio file for ${song.title}`);
+				this.client.logger.debug(`Downloading audio file for ${song.title} (${song.id})`);
 
 				// Create a stream of the song
 				const videoStream = ytdl(`https://www.youtube.com/watch?v=${song.id}`, {

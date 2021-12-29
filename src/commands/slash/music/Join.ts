@@ -10,8 +10,6 @@ export const run = async (client: Bot, interaction: BaseCommandInteraction): Pro
     const channel = interaction.options.get('channel').channel as VoiceChannel;
 
     client.players.get(interaction.guildId).joinChannel(channel);
-    client.players.get(interaction.guildId).play();
-
 
     interaction.reply(`Joined ${channel.name}`);
 };

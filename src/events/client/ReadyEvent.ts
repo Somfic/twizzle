@@ -26,12 +26,6 @@ export const run: RunFunction = async (client: Bot, ...args: any[]): Promise<voi
     await rest.put(commandsRoute, {
         body: commands
     });
-
-    // Register players
-    client.guilds.cache.forEach(async (guild) => {
-        client.logger.debug(`Registering player for guild ${guild.name}`);
-        client.players.set(guild.id, new Player(client, guild));
-    });
 }
 
 export const name: string = "ready";

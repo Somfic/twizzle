@@ -1,14 +1,12 @@
 import { ButtonInteraction, MessageEmbed } from 'discord.js';
-import { Bot } from '../../client/Client';
-import { Song } from '../../client/Player';
+import { Bot } from '../../../client/Client';
+import { Song } from '../../../client/Player';
 
-export const id = 'play';
+export const id = 'search-play';
 
 export const run = async (client: Bot, interaction: ButtonInteraction) => {
 	const songs = client.fetchedSongs.get(interaction.channelId);
 	const index = client.fetchedSongsIndex.get(interaction.channelId);
-
-	const player = client.players.get(interaction.guildId);
 	const song = songs[index];
 
 	await interaction.deferReply();

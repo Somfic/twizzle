@@ -27,6 +27,8 @@ export const run = async (
 ): Promise<void> => {
 	const query = interaction.options.get('query').value.toString();
 
+	interaction.deferReply();
+
 
 	const playlistRegex =
 		/^(?:https?:\/\/)?(?:www\.)?(?:open\.spotify\.com\/)(?:playlist|user\/playlist)\/([a-zA-Z0-9]{22})/;
@@ -60,8 +62,15 @@ export const run = async (
         const owner = (await spotifyApi.getUser(playlist.owner.id)).body;
         client.logger.debug(`Found ${tracks.length} tracks in playlist ${playlist.name}`);
 
-        tracks.forEach(async (track) => {
+		let songs: Song[] = [];
+
+		for (let index = 0; index < tracks.length; index++) {
+			const track = tracks[index];
+
             let song: Song = new Song();
+
+			if(track.track == null)
+				continue;
 
             song.searchQuery = track.track.name + ' ' + track.track.artists[0].name + ' official';
             song.title = track.track.name;
@@ -73,17 +82,18 @@ export const run = async (
                 verified: true,
             };
             song.link = track.track.external_urls.spotify;
-            song.thumbnail = track.track.album.images[0].url;
+            song.thumbnail = track.track.album.images.length > 0 ? track.track.album.images[0].url : '';
             song.duration = Math.round(track.track.duration_ms / 1000);
             song.description = track.track.album.name;
             song.id = track.track.id;
 
-            client.players.get(interaction.guildId).queueSong(song);
-        });
+			songs.push(song);
+        };
 
+		client.players.get(interaction.guildId).queueSongs(songs);
         client.players.get(interaction.guildId).play();
 
-        await interaction.reply({
+        await interaction.followUp({
             embeds: [{
                 title: `${playlist.name}`,
                 description: `Added ${tracks.length} tracks to the queue`,
@@ -93,7 +103,7 @@ export const run = async (
                 url: playlist.external_urls.spotify,
                 footer: {
                     text: owner.display_name,
-                    icon_url: owner.images[0].url
+                    icon_url: owner.images.length > 0 ? owner.images[0].url : ''
                 }
             }]
         });
@@ -107,7 +117,7 @@ export const run = async (
 		const firstInQueue = client.players.get(interaction.guildId).hasNothingToDo();
 
 		const { embed, row } = buildSongSelectionUi(results, 0, firstInQueue);
-		await interaction.reply({ embeds: [embed], components: [row] });
+		await interaction.followUp({ embeds: [embed], components: [row] });
 	}
 };
 
@@ -138,20 +148,20 @@ export function buildSongSelectionUi(
 
 	const row = new MessageActionRow();
 	const previousButton = new MessageButton()
-		.setCustomId('previous')
-		.setLabel('↺')
+		.setCustomId('search-previous')
+		.setLabel('🠄')
 		.setDisabled(!(index > 0))
 		.setStyle('SECONDARY');
 
 	const selectButton = new MessageButton()
-		.setCustomId('play')
-		.setLabel(firstInQueue ? '▶' : 'Queue')
+		.setCustomId('search-play')
+		.setLabel(firstInQueue ? '▶' : 'Add to queue')
 		.setDisabled(!(index >= 0 && index < songs.length))
 		.setStyle('PRIMARY');
 
 	const nextButton = new MessageButton()
-		.setCustomId('next')
-		.setLabel('↻')
+		.setCustomId('search-next')
+		.setLabel('🠆')
 		.setDisabled(!(index < songs.length - 1))
 		.setStyle('SECONDARY');
 
