@@ -191,11 +191,16 @@ public class GuildAudioPlayer
             _activeLoadedTracks++;
 
             Player.Queue.Enqueue(youtubeTrack);
-            
-            if (Player.PlayerState != PlayerState.Playing && autoPlay)
+
+            if (autoPlay)
             {
-                _log.LogInformation("Starting to play");
-                await OnTrackEnded(new TrackEndedEventArgs());
+                if (Player.PlayerState != PlayerState.Playing)
+                {
+                    _log.LogInformation("Starting to play");
+                    await OnTrackEnded(new TrackEndedEventArgs());
+                }
+
+                await UpdateUi();
             }
         }
         catch (Exception ex)
@@ -211,6 +216,14 @@ public class GuildAudioPlayer
         await Player.ApplyFilterAsync(new LowPassFilter()
         {
             Smoothing = 1
+        });
+
+        await Player.ApplyFilterAsync(new KarokeFilter()
+        {
+            Level = 1,
+            MonoLevel = 1,
+            FilterBand = 220,   
+            FilterWidth = 100,
         });
             
         await UpdateUi();
@@ -303,6 +316,8 @@ public class GuildAudioPlayer
         {
             _log.LogInformation("Queue is empty, stopping");
         }
+
+        await UpdateUi();
     }
 
     public void OnPlayerUpdated(PlayerUpdateEventArgs playerUpdateEventArgs)
@@ -457,10 +472,12 @@ public class GuildAudioPlayer
             var current = _tracks[Player.Track.Id];
             var artist = await _spotify.GetArtist(current);
 
+            var image = current.Album.Images.Count > 0 ? current.Album.Images.First().Url : "https://jonhassell.com/wp-content/uploads/2020/09/Apple-Gray.png";
+
             playing
                 .WithTitle(current.Name)
                 .WithUrl(current.ExternalUrls.First().Value)
-                .WithImageUrl(current.Album.Images[0].Url)
+                .WithImageUrl(image)
                 .WithFooter($"{string.Join("  ·  " , current.Artists.Select(x => x.Name))}  ·  {Player.Track.Duration:mm\\:ss}", artist.Images[0].Url)
                 .WithColor(Color.DarkGreen)
                 .Build();
@@ -480,7 +497,7 @@ public class GuildAudioPlayer
             {
                 var track = _tracks[youtubeTrack.Id];
 
-                queue.AddField($"{i}. {track.Name}", track.Artists[0].Name, true);
+                queue.AddField($"{i}. {track.Name}", track.Artists.First().Name, true);
 
                 i++;
             }
