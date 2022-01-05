@@ -6,3 +6,4 @@ riderModule.iml
 *.log
 TwizzleBot/appsettings.json
 .idea
+TwizzleBot/Audio/LavaLink/*
