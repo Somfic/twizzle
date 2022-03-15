@@ -97,7 +97,7 @@ public class InteractionHandler : IHandler
         _interactionService.AddTypeConverter<Uri>(new UriTypeConverter());
         await _interactionService.AddModulesAsync(assembly, _services);
 
-        var guilds = _config.GetSection("Discord:Guilds").GetChildren().Select(x => x.Value);
+        var guilds = _config.GetValue<string>("Discord:Guilds").Split(',');
         
         foreach (var guildId in guilds)
         {
