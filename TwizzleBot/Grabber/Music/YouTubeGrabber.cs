@@ -5,7 +5,7 @@ using Microsoft.Extensions.Logging;
 using Victoria;
 using Victoria.Responses.Search;
 
-namespace TwizzleBot.Grabber;
+namespace TwizzleBot.Grabber.Music;
 
 public class YouTubeGrabber
 {
@@ -28,6 +28,7 @@ public class YouTubeGrabber
         {
             case SearchStatus.LoadFailed:
                 throw new Exception($"Failed to load YouTube search results for query '{query}'.", new Exception(result.Exception.Message));
+            
             case SearchStatus.NoMatches:
                 throw new Exception($"Could not find any Spotify matches for query '{query}'.");
         }

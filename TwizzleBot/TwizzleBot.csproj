@@ -8,6 +8,7 @@
 
     <ItemGroup>
       <PackageReference Include="Discord.Net" Version="3.1.0" />
+      <PackageReference Include="HtmlAgilityPack" Version="1.11.42" />
       <PackageReference Include="Microsoft.Extensions.Hosting" Version="6.0.0" />
       <PackageReference Include="Microsoft.Extensions.Http" Version="6.0.0" />
       <PackageReference Include="SpotifyAPI.Web" Version="6.2.2" />
@@ -39,10 +40,14 @@
       <None Update="Audio\LavaLink\Lavalink.jar">
         <CopyToOutputDirectory>Always</CopyToOutputDirectory>
       </None>
+      <None Update="html.html">
+        <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      </None>
     </ItemGroup>
 
     <ItemGroup>
       <Folder Include="Audio\LavaLink" />
+      <Folder Include="Grabber\Models" />
       <Folder Include="Modules\Interactions\Slash" />
     </ItemGroup>
 

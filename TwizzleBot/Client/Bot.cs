@@ -8,6 +8,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using SpotifyAPI.Web;
 using TwizzleBot.Grabber;
+using TwizzleBot.Grabber.Music;
 using TwizzleBot.Handlers;
 using TwizzleBot.Handlers.Commands;
 using TwizzleBot.Handlers.Interactions;

@@ -88,7 +88,7 @@ public class InteractionHandler : IHandler
         else
         {
             _log.LogWarning("{User} failed to execute {Type} command {Module}:{Command}. {ErrorType}: {Error}", $"{context.User.Username}#{context.User.Discriminator}", type, info.Module.Name, info.Name, result.ToString(), result.ErrorReason);
-            await context.Interaction.FollowupAsync($"An error occurred while executing that command.\n```\n{result.ErrorReason}\n```");
+            await context.Interaction.FollowupAsync($"Oh no.. our bot.. it's broken ....\n```\n{result.ErrorReason}\n```");
         }
     }
 

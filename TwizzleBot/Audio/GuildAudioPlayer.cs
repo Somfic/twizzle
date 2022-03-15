@@ -12,6 +12,8 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using SpotifyAPI.Web;
 using TwizzleBot.Grabber;
+using TwizzleBot.Grabber.Lyrics;
+using TwizzleBot.Grabber.Music;
 using Victoria;
 using Victoria.Enums;
 using Victoria.EventArgs;
@@ -27,6 +29,7 @@ public class GuildAudioPlayer
     private readonly HttpClient _client;
     private readonly LavaNode _lavaNode;
     private readonly SpotifyGrabber _spotify;
+    private readonly GeniusGrabber _genius;
 
     public IVoiceChannel AudioChannel { get; private set; }
     public ITextChannel TextChannel { get; private set; }
@@ -43,21 +46,24 @@ public class GuildAudioPlayer
     private int _activeLoadedTracks;
     private DateTime _lastLoadUpdate = DateTime.MinValue;
     private DateTime _startedLoadingAt;
-        
+
     private int _queueItemsPerPage = 12;
 
     private int _queuePage;
+    private string? _lyricsText;
 
-    public GuildAudioPlayer(ILogger<GuildAudioPlayer> log, IConfiguration config, DiscordSocketClient client, YouTubeGrabber youtube,
-        IHttpClientFactory clientFactory, LavaNode lavaNode, SpotifyGrabber spotify)
+    public GuildAudioPlayer(ILogger<GuildAudioPlayer> log, IConfiguration config, DiscordSocketClient client,
+        YouTubeGrabber youtube,
+        IHttpClientFactory clientFactory, LavaNode lavaNode, SpotifyGrabber spotify, GeniusGrabber genius)
     {
         _log = log;
         _config = config;
         _youtube = youtube;
         _lavaNode = lavaNode;
         _spotify = spotify;
+        _genius = genius;
         _client = clientFactory.CreateClient();
-            
+
         _queueItemsPerPage = _config.GetValue<int>("Discord:ItemsPerPage");
     }
 
@@ -129,13 +135,15 @@ public class GuildAudioPlayer
 
             var tracks = new List<FullTrack>();
 
-            tracks.AddRange(playlist.Tracks.Items.Where(x => x.Track.Type == ItemType.Track).Select(x => (FullTrack) x.Track));
-                
+            tracks.AddRange(playlist.Tracks.Items.Where(x => x.Track.Type == ItemType.Track)
+                .Select(x => (FullTrack) x.Track));
+
             while (offset < playlist.Tracks.Total - 100)
             {
                 offset += 100;
                 var nextTracks = await _spotify.GetPlaylist(playlist, offset);
-                tracks.AddRange(nextTracks.Items.Where(x => x.Track.Type == ItemType.Track).Select(x => (FullTrack) x.Track));
+                tracks.AddRange(nextTracks.Items.Where(x => x.Track.Type == ItemType.Track)
+                    .Select(x => (FullTrack) x.Track));
             }
 
             await Queue(tracks.ToArray());
@@ -151,7 +159,7 @@ public class GuildAudioPlayer
         var tasks = tracks.Select(x => Queue(x, false)).ToArray();
 
         await Task.WhenAny(tasks);
-        
+
         if (Player.PlayerState != PlayerState.Playing)
         {
             _log.LogInformation("Starting to play");
@@ -208,11 +216,36 @@ public class GuildAudioPlayer
             _log.LogWarning(ex, "Could not queue {Track} by {Artist}", track.Name, track.Artists[0].Name);
         }
     }
+    
+    public async Task Queue(LavaTrack track, bool autoPlay = true)
+    {
+        try
+        { 
+            _activeLoadedTracks++;
+
+            Player.Queue.Enqueue(track);
+
+            if (autoPlay)
+            {
+                if (Player.PlayerState != PlayerState.Playing)
+                {
+                    _log.LogInformation("Starting to play");
+                    await OnTrackEnded(new TrackEndedEventArgs());
+                }
+
+                await UpdateUi();
+            }
+        }
+        catch (Exception ex)
+        {
+            _log.LogWarning(ex, "Could not queue {Track} by {Artist}", track.Title, track.Author);
+        }
+    }
 
     public async Task Play(LavaTrack track)
     {
         await Player.PlayAsync(track);
-            
+
         await Player.ApplyFilterAsync(new LowPassFilter()
         {
             Smoothing = 1
@@ -222,10 +255,10 @@ public class GuildAudioPlayer
         {
             Level = 1,
             MonoLevel = 1,
-            FilterBand = 220,   
+            FilterBand = 220,
             FilterWidth = 100,
         });
-            
+
         await UpdateUi();
     }
 
@@ -243,6 +276,7 @@ public class GuildAudioPlayer
 
     public async Task Stop()
     {
+        Player.Queue.Clear();
         await Player.StopAsync();
         await UpdateUi();
     }
@@ -255,21 +289,21 @@ public class GuildAudioPlayer
         }
         else
         {
-            _log.LogInformation("Moving {Track} to front of queue" , amount);
-                
+            _log.LogInformation("Moving {Track} to front of queue", amount);
+
             var newTrack = Player.Queue.RemoveAt(amount - 1);
             var oldQueue = Player.Queue.ToArray();
-                
+
             Player.Queue.Clear();
             Player.Queue.Enqueue(newTrack);
             Player.Queue.Enqueue(oldQueue);
-                
+
             _log.LogDebug("Done moving");
         }
 
         await UpdateUi();
     }
-        
+
     public async Task Skip(int amount)
     {
         if (Player.Queue.Count == 0)
@@ -280,7 +314,7 @@ public class GuildAudioPlayer
         {
             for (var i = 0; i < amount - 1; i++)
             {
-                Player.Queue.RemoveAt(0);   
+                Player.Queue.RemoveAt(0);
             }
 
             await Player.SkipAsync();
@@ -292,6 +326,12 @@ public class GuildAudioPlayer
     public async Task Clear()
     {
         Player.Queue.Clear();
+        await UpdateUi();
+    }
+    
+    public async Task Clear(int song)
+    {
+        Player.Queue.RemoveAt(song - 1);
         await UpdateUi();
     }
 
@@ -308,8 +348,7 @@ public class GuildAudioPlayer
 
         if (Player.Queue.TryDequeue(out var youtubeTrack))
         {
-            var track = _tracks[youtubeTrack.Id];
-            _log.LogInformation("Playing next track {Track} by {Artist}", track.Name, track.Artists[0].Name);
+            _log.LogInformation("Playing next track {Track} by {Artist}", youtubeTrack.Title, youtubeTrack.Author);
             await Play(youtubeTrack);
         }
         else
@@ -330,28 +369,39 @@ public class GuildAudioPlayer
 
     public async Task OnTrackStarted(TrackStartEventArgs trackStartEventArgs)
     {
-        await UpdateUi();
+        if (_tracks.ContainsKey(Player.Track.Id))
+        {
+            _lyricsText = "*Loading lyrics ...*";
+            _lyricsText = await _genius.FindLyrics(await _genius.FindUrl(_tracks[Player.Track.Id]));
+            _lyricsText = _lyricsText?.Replace("[", "\n**[").Replace("]", "]**").Replace("(", "*(").Replace(")", ")*");
+        }
+        else
+        {
+            _lyricsText = "idk lyrics van youtube liedjes";
+        }
+
+        await UpdateUi();  
     }
 
     public void OnTrackException(TrackExceptionEventArgs trackExceptionEventArgs)
     {
     }
-        
+
     public async Task NextPage()
     {
         var maxPage = (int) Math.Ceiling((double) Player.Queue.Count / _queueItemsPerPage) + 2;
-            
+
         _log.LogInformation("Max page is {MaxPage}", maxPage);
-            
+
         _queuePage = Math.Min(_queuePage + 1, maxPage);
-            
+
         await UpdateUi();
     }
-        
+
     public async Task PreviousPage()
     {
         _queuePage = Math.Max(_queuePage - 1, 0);
-            
+
         await UpdateUi();
     }
 
@@ -362,38 +412,42 @@ public class GuildAudioPlayer
 
         Embed[] embeds;
         MessageComponent buttons;
-            
+
         try
         {
             embeds = await BuildEmbeds();
             buttons = await BuildButtons();
         }
-        catch(Exception ex)
+        catch (Exception ex)
         {
             _log.LogInformation(ex, "Failed to build UI");
 
             if (_message != null)
             {
-                await _message.DeleteAsync();   
+                await _message.DeleteAsync();
             }
+
             var message = await Context.Interaction.FollowupAsync("Failed to build UI");
             await message.DeleteAsync();
             return;
         }
-            
+
         if (_message == null)
         {
+            // Delete all messages made by the bot in the channel
+            var messages = await TextChannel.GetMessagesAsync().FlattenAsync();
+            messages.Where(x => x.Author.Id == Context.Client.CurrentUser.Id).Skip(1).ToList().ForEach(x => x.DeleteAsync());
+            
             // Send a new one
             _message = await Context.Interaction.FollowupAsync(null, embeds, false, false, null, buttons);
             return;
         }
-
+        
         if (_message.Id != lastMessage.Id)
         {
             try
             {
                 var message = await TextChannel.GetMessageAsync(_message.Id);
-
                 // Delete the old message
                 await _message.DeleteAsync();
             }
@@ -404,8 +458,11 @@ public class GuildAudioPlayer
             finally
             {
                 // Send a new one
+                var messages = await TextChannel.GetMessagesAsync().FlattenAsync();
+                messages.Where(x => x.Author.Id == Context.Client.CurrentUser.Id).Skip(1).ToList().ForEach(x => x.DeleteAsync());
+                
+                // Delete all messages made by the bot in the channel
                 _message = await Context.Interaction.FollowupAsync(null, embeds, false, false, null, buttons);
-
             }
         }
         else
@@ -420,7 +477,7 @@ public class GuildAudioPlayer
         {
             return new ComponentBuilder().Build();
         }
-            
+
         var isPlaying = Player.PlayerState == PlayerState.Playing;
         var hasMultipleNextTracks = Player.Queue?.Count > 1;
         var hasNextQueuePage = Player.Queue?.Count > (_queuePage + 1) * _queueItemsPerPage;
@@ -432,10 +489,10 @@ public class GuildAudioPlayer
             .WithButton("⤮", "shuffle", ButtonStyle.Primary, null, null, !hasMultipleNextTracks)
             .WithButton("⬅", "page-previous", ButtonStyle.Secondary, null, null, !hasPreviousQueuePage)
             .WithButton("➡", "page-next", ButtonStyle.Secondary, null, null, !hasNextQueuePage);
-                
+
         return builder.Build();
     }
-        
+
     private async Task<Embed[]> BuildEmbeds()
     {
         var playing = new EmbedBuilder().WithAuthor("Currently playing");
@@ -444,7 +501,7 @@ public class GuildAudioPlayer
         if (_activeLoadingPlaylist != null)
         {
             var user = await _spotify.GetUser(_activeLoadingPlaylist.Owner);
-                
+
             // calculate the estimated time left based on _startedLoadingAt
             var percentage = ((double) _activeLoadedTracks / _activeLoadingPlaylist?.Tracks?.Total).Value;
             var elapsed = DateTime.Now - _startedLoadingAt;
@@ -455,7 +512,7 @@ public class GuildAudioPlayer
             playing.WithAuthor($"Loading playlist  ·  {Math.Round(percentage * 100f)}%")
                 .WithTitle(_activeLoadingPlaylist.Name)
                 .WithUrl(_activeLoadingPlaylist?.ExternalUrls?.Values.First())
-                .WithDescription($"Loaded {_activeLoadedTracks} / {_activeLoadingPlaylist.Tracks?.Total} tracks")
+                .WithDescription($"{_activeLoadingPlaylist.Description}\n\nLoaded {_activeLoadedTracks} / {_activeLoadingPlaylist.Tracks?.Total} tracks")
                 .WithImageUrl(_activeLoadingPlaylist.Images?.First().Url)
                 .WithFooter($"{user.DisplayName}  ·  Done in {remaining:mm\\:ss}", user.Images.First().Url)
                 .WithColor(Color.DarkerGrey);
@@ -469,18 +526,40 @@ public class GuildAudioPlayer
         }
         else
         {
-            var current = _tracks[Player.Track.Id];
-            var artist = await _spotify.GetArtist(current);
+            if (_tracks.ContainsKey(Player.Track.Id))
+            {
+                // Spoitfy track
+                
+                var current = _tracks[Player.Track.Id];
+                var artist = await _spotify.GetArtist(current);
 
-            var image = current.Album.Images.Count > 0 ? current.Album.Images.First().Url : "https://jonhassell.com/wp-content/uploads/2020/09/Apple-Gray.png";
+                var image = current.Album.Images.Count > 0
+                    ? current.Album.Images.First().Url
+                    : "https://jonhassell.com/wp-content/uploads/2020/09/Apple-Gray.png";
 
-            playing
-                .WithTitle(current.Name)
-                .WithUrl(current.ExternalUrls.First().Value)
-                .WithImageUrl(image)
-                .WithFooter($"{string.Join("  ·  " , current.Artists.Select(x => x.Name))}  ·  {Player.Track.Duration:mm\\:ss}", artist.Images[0].Url)
-                .WithColor(Color.DarkGreen)
-                .Build();
+                playing
+                    .WithTitle(current.Name)
+                    .WithUrl(current.ExternalUrls.First().Value)
+                    .WithImageUrl(image)
+                    .WithFooter($"{string.Join("  ·  ", current.Artists.Select(x => x.Name))}  ·  {Player.Track.Duration:mm\\:ss}",
+                        artist.Images[0].Url)
+                    .WithDescription(_lyricsText)
+                    .WithColor(Color.DarkGreen)
+                    .Build();
+            }
+            else
+            {
+                var current = Player.Track;
+                
+                playing
+                    .WithTitle(current.Title)
+                    .WithUrl(current.Url)
+                    .WithImageUrl("https://i.imgur.com/in3EJ34.png")
+                    .WithFooter($"{current.Author}  ·  {Player.Track.Duration:mm\\:ss}")
+                    .WithDescription(_lyricsText)
+                    .WithColor(Color.DarkGreen)
+                    .Build();
+            }
         }
 
         if (Player?.Queue == null || Player?.Queue?.Count == 0)
@@ -491,14 +570,20 @@ public class GuildAudioPlayer
         {
             var maxPage = (int) Math.Ceiling((double) Player.Queue.Count / _queueItemsPerPage) - 1;
             _queuePage = Math.Min(_queuePage, maxPage);
-                
+
             int i = _queuePage * _queueItemsPerPage + 1;
             foreach (var youtubeTrack in Player.Queue.Skip(_queuePage * _queueItemsPerPage).Take(_queueItemsPerPage))
             {
-                var track = _tracks[youtubeTrack.Id];
-
-                queue.AddField($"{i}. {track.Name}", track.Artists.First().Name, true);
-
+                if (_tracks.ContainsKey(youtubeTrack.Id))
+                {
+                    var track = _tracks[youtubeTrack.Id];
+                    queue.AddField($"{i}. {track.Name}", track.Artists.First().Name, true);
+                }
+                else
+                {
+                    queue.AddField($"{i}. {youtubeTrack.Title}", youtubeTrack.Author, true);
+                }
+                
                 i++;
             }
 
@@ -509,18 +594,30 @@ public class GuildAudioPlayer
             {
                 page = $"{_queuePage + 1} / {Math.Ceiling(Player.Queue.Count / (double) _queueItemsPerPage)}  ·  ";
             }
-                
-            queue.WithFooter($"{Player.Queue.Count} tracks  ·  {page}{Math.Floor(totalDuration.TotalHours)}:{totalDuration.Minutes:00}:{totalDuration.Seconds:00}");
+
+            queue.WithFooter(
+                $"{Player.Queue.Count} tracks  ·  {page}{Math.Floor(totalDuration.TotalHours)}:{totalDuration.Minutes:00}:{totalDuration.Seconds:00}");
         }
 
         var embeds = new List<Embed>();
-            
-        if(playing != null)
+
+        if (playing != null)
             embeds.Add(playing.Build());
-            
-        if(queue != null)
+
+        if (queue != null)
             embeds.Add(queue.Build());
 
         return embeds.ToArray();
+    }
+
+    public int QueueCount()
+    {
+        return Player.Queue.Count;
+    }
+
+    public async Task QueueYouTube(string query)
+    {
+        var tracks = await _youtube.Search(query);
+        await Queue(tracks.First());
     }
 }

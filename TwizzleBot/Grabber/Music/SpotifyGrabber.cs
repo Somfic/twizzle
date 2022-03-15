@@ -6,7 +6,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using SpotifyAPI.Web;
 
-namespace TwizzleBot.Grabber;
+namespace TwizzleBot.Grabber.Music;
 
 public class SpotifyGrabber
 {

@@ -9,6 +9,8 @@ using Microsoft.Extensions.Logging;
 using SpotifyAPI.Web;
 using TwizzleBot.Audio;
 using TwizzleBot.Grabber;
+using TwizzleBot.Grabber.Lyrics;
+using TwizzleBot.Grabber.Music;
 using TwizzleBot.Handlers;
 using TwizzleBot.Handlers.Commands;
 using TwizzleBot.Handlers.Interactions;
@@ -34,7 +36,9 @@ public static class TwizzleBotExtensions
         // Grabber services
         services.AddSingleton<SpotifyGrabber>();
         services.AddSingleton<YouTubeGrabber>();
-            
+        services.AddSingleton<GeniusGrabber>();
+        services.AddSingleton<AppleMusicGrabber>();
+        
         // Lavalink services
         services.AddLavaNode(config =>
         {

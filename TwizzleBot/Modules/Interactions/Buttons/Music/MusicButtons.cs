@@ -7,6 +7,7 @@ using Discord.Interactions;
 using Discord.WebSocket;
 using TwizzleBot.Audio;
 using TwizzleBot.Grabber;
+using TwizzleBot.Grabber.Music;
 using Victoria.Enums;
 using RunMode = Discord.Interactions.RunMode;
 
