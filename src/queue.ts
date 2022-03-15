@@ -14,11 +14,15 @@ export class Queue {
     }
 
     public getNextSong(): string {
-        return this.queue.shift() ?? "https://www.youtube.com/watch?v=dQw4w9WgXcQ";
+        return this.queue[1] ?? "https://www.youtube.com/watch?v=dQw4w9WgXcQ";
     }
 
     public clear() {
         this.queue = [];
+    }
+
+    public removeCurrent() {
+        this.queue.shift();
     }
     
     public bringForward(index: number): void {
@@ -30,5 +34,9 @@ export class Queue {
         embed.setTitle("Queue");
         embed.setDescription(this.queue.join("\n"));
         return embed;
+    }
+
+    public getQueueSize(): number {
+        return this.queue.length;
     }
 }

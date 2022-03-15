@@ -7,12 +7,13 @@ export default class Skip extends Command {
     constructor() {
         const command = new SlashCommandBuilder()
                         .setName("skip")
-                        .setDescription("Skip this song");
+                        .setDescription("Skup this song");
         super(command);
     }
     
     public async handler(channel: CommandInteraction): Promise<void> {
-        Voice.leaveVoiceChannel(channel);
+        Voice.getPlayer(channel).queue.removeCurrent();
+        Voice.getPlayer(channel).playNext();
         channel.followUp("Skipping song");
     }
 }

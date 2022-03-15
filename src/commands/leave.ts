@@ -13,6 +13,6 @@ export default class Leave extends Command {
     
     public async handler(channel: CommandInteraction): Promise<void> {
         Voice.leaveVoiceChannel(channel);
-        channel.followUp("Goodbye:)");
+        channel.followUp("Goodbye:(");
     }
 }

@@ -3,7 +3,7 @@ import { CommandInteraction, VoiceChannel, VoiceState } from "discord.js";
 import { Player } from "./player";
 
 export class Voice {
-    private player: Player;
+    public player: Player;
     private connection: VoiceConnection;
     private static guilds = new Map();
     
@@ -23,6 +23,10 @@ export class Voice {
         }
         Voice.guilds.get(channel?.guild?.id).disconnect();
         Voice.guilds.delete(channel?.guild?.id);
+    }
+
+    static getPlayer(channel: CommandInteraction): Player {
+        return Voice.guilds.get(channel?.guild?.id).player;
     }
 
     constructor(interaction: CommandInteraction) {

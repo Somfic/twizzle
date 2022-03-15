@@ -1,4 +1,5 @@
 import { SlashCommandBuilder, SlashCommandStringOption } from "@discordjs/builders";
+import { AudioPlayerPlayingState } from "@discordjs/voice/dist";
 import { CommandInteraction } from "discord.js";
 import { Voice } from "../voice";
 import Command from "./command";
@@ -23,8 +24,13 @@ export default class YouTube extends Command {
         const url = interaction.options.getString("url", true);
     
         let voice = Voice.joinVoiceChannel(interaction);
-        voice.queue(url);
+        voice.player.addToQueue(url);
+        console.log(1);
+        if(voice.player.getQueueSize() == 1) {
+            voice.player.addToQueue(url);
+            voice.player.playNext();
+        }
 
-        interaction.followUp("Playing now biatch");
+        interaction.followUp(`Playing now biatch ${voice.player.getQueueSize()}`);
     }
 }

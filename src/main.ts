@@ -2,14 +2,15 @@ import { REST } from '@discordjs/rest';
 import { Client, Intents } from 'discord.js';
 import { Routes } from 'discord-api-types/v9';
 import config from "./config";
-import { Command, Ping, Search, YouTube, Leave } from './commands';
+import { Command, Ping, Search, YouTube, Leave, Skip } from './commands';
 
 const client = new Client({intents: [Intents.FLAGS.GUILDS, Intents.FLAGS.GUILD_VOICE_STATES]});
 const commands: { [key: string]: Command } = {
     ping: new Ping(),
     search: new Search(),
     youtube: new YouTube(),
-    leave: new Leave()
+    leave: new Leave(),
+    skip: new Skip()
 };
 
 client.once('ready', async () => {
@@ -29,9 +30,10 @@ client.on('interactionCreate', async channel => {
         console.log(`Processing command: ${commandName}`);
         await commands[commandName].handler(channel);
     } catch(error) {
+        console.log(1);
         console.log(`Error processing command: ${commandName}`);
         console.log(error);
-        channel.followUp({content: "Oh no .. our bot .. it's broken\n```" + error + "```", ephemeral: config.commands.ephemeral});
+        channel.followUp({content: "no u\n```" + error + "```", ephemeral: config.commands.ephemeral});
     }
 })
 

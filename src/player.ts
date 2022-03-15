@@ -10,12 +10,14 @@ import ytdl from "ytdl-core";
 import { Queue } from "./queue";
 
 export class Player {
-    private queue: Queue = new Queue();
+    public queue: Queue = new Queue();
     private player: AudioPlayer = createAudioPlayer();
 
     constructor() {
         this.player.on(AudioPlayerStatus.Idle, () => {
-           this.playNext(); 
+            this.queue.removeCurrent();
+            this.playNext(); 
+
         });
     }
 
@@ -38,5 +40,9 @@ export class Player {
 
     public getInternalPlayer(): AudioPlayer {
         return this.player;
+    }
+
+    public getQueueSize(): number {
+        return this.queue.getQueueSize();
     }
 }
