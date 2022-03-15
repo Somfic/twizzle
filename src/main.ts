@@ -1,59 +1,51 @@
-import { SlashCommandBuilder } from '@discordjs/builders';
 import { REST } from '@discordjs/rest';
 import { Client, Intents } from 'discord.js';
-import fs from 'fs';
 import { Routes } from 'discord-api-types/v9';
-
 import config from "./config";
+import { Command, Ping, Search, YouTube, Leave } from './commands';
 
-import { generateDependencyReport } from '@discordjs/voice';
-
-const client = new Client({intents: [Intents.FLAGS.GUILDS]});
+const client = new Client({intents: [Intents.FLAGS.GUILDS, Intents.FLAGS.GUILD_VOICE_STATES]});
+const commands: { [key: string]: Command } = {
+    ping: new Ping(),
+    search: new Search(),
+    youtube: new YouTube(),
+    leave: new Leave()
+};
 
 client.once('ready', async () => {
     console.log('Ready!');
     registerCommands();
-    console.log(generateDependencyReport());
 });
 
-client.on('interactionCreate', async interaction => {
-    if(!interaction.isCommand())
+client.on('interactionCreate', async channel => {
+    if(!channel.isCommand())
         return;
 
-    await interaction.deferReply({ephemeral: true});
+    await channel.deferReply({ephemeral: config.commands.ephemeral});
 
-    const { commandName } = interaction;
+    const { commandName } = channel;
 
     try {
         console.log(`Processing command: ${commandName}`);
-        await require(`./commands/${commandName}.ts`).default.handler(interaction);
+        await commands[commandName].handler(channel);
     } catch(error) {
-        interaction.followUp({content: "Oh no .. our bot .. it's broken\n```" + error + "```", ephemeral: true});
-        console.error(`Error processing command: ${commandName}`);
-        console.error(error);
+        console.log(`Error processing command: ${commandName}`);
+        console.log(error);
+        channel.followUp({content: "Oh no .. our bot .. it's broken\n```" + error + "```", ephemeral: config.commands.ephemeral});
     }
 })
 
 client.login(config.discord.token);
 
 function registerCommands() {
-    const files = fs.readdirSync('./src/commands').filter(file => file.endsWith('.ts'))
-    const commands: SlashCommandBuilder[] = [];
-    
-    for(const file of files) {        
-        try {
-            const command = require(`./commands/${file}`).default.command as SlashCommandBuilder;
-            command.setName(file.replace('.ts', ''));
-            commands.push(command);
-        } catch(error) {
-            console.error(`Error processing file: ${file}`);
-            console.error(error);
-        }
+    const json = [];
+
+    for (const command in commands) {
+        json.push(commands[command].getCommandJSON());
     }
 
-    const json = commands.map(command => command.toJSON());
     const rest = new REST({ version: '9' }).setToken(config.discord.token);
-    rest.put(Routes.applicationGuildCommands(config.discord.id, config.discord.guild), { body: commands })
+    rest.put(Routes.applicationGuildCommands(config.discord.id, config.discord.guild), { body: json })
 	.then(() => console.log('Successfully registered application commands.'))
 	.catch(console.error);
 }

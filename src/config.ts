@@ -10,5 +10,9 @@ export default {
     spotify: {
         id: process.env.SPOTIFY_ID ?? '',
         token: process.env.SPOTIFY_TOKEN ?? '',
+    },
+
+    commands: {
+        ephemeral: false,
     }
 }
