@@ -26,8 +26,9 @@ export default class YouTube extends Command {
         let voice = Voice.joinVoiceChannel(interaction);
         voice.player.addToQueue(url);
         console.log(1);
+
         if(voice.player.getQueueSize() == 1) {
-            voice.player.addToQueue(url);
+            // voice.player.addToQueue(url);
             voice.player.playNext();
         }
 

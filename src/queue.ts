@@ -14,7 +14,7 @@ export class Queue {
     }
 
     public getNextSong(): string {
-        return this.queue[1] ?? "https://www.youtube.com/watch?v=dQw4w9WgXcQ";
+        return this.queue[0] ?? "https://www.youtube.com/watch?v=dQw4w9WgXcQ";
     }
 
     public clear() {

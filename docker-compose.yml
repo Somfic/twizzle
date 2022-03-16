@@ -1,0 +1,6 @@
+version: '3.2'
+
+services:
+  twizzlebot:
+    container_name: twizzle_bot
+    build: .
