@@ -17,6 +17,12 @@ const commands: { [key: string]: Command } = {
 client.once('ready', async () => {
     console.log('Ready!');
     registerCommands();
+    
+    if(process.env.NODE_ENV === 'development') {
+        client.user?.setStatus('idle');
+    } else {
+        client.user?.setStatus('online');
+    }
 });
 
 client.on('interactionCreate', async channel => {
