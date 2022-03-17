@@ -17,16 +17,13 @@ export default class YouTube extends Command {
     }
     
     public async handler(interaction: CommandInteraction): Promise<void> {
-    
-        const { generateDependencyReport } = require('@discordjs/voice');
-        console.log(generateDependencyReport());
-
         const url = interaction.options.getString("url", true);
-    
-        let voice = Voice.joinVoiceChannel(interaction);
-        voice.player.addToQueue(url);
-        console.log(1);
 
+        const voice = Voice.fromInteraction(interaction);
+
+        voice.connect();
+        voice.player.addToQueue(url);
+        
         if(voice.player.getQueueSize() == 1) {
             // voice.player.addToQueue(url);
             voice.player.playNext();

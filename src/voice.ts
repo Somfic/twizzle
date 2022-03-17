@@ -1,56 +1,67 @@
 import { DiscordGatewayAdapterCreator, joinVoiceChannel, VoiceConnection } from "@discordjs/voice";
-import { CommandInteraction, VoiceChannel, VoiceState } from "discord.js";
+import { CommandInteraction, VoiceBasedChannel, VoiceChannel, VoiceState } from "discord.js";
 import { Player } from "./player";
 
 export class Voice {
-    public player: Player;
-    private connection: VoiceConnection;
     private static guilds = new Map();
-    
-    static joinVoiceChannel(channel: CommandInteraction) : Voice {
-        if (Voice.guilds.has(channel?.guild?.id)) {
-            return Voice.guilds.get(channel?.guild?.id);
+
+    static fromInteraction(interaction: CommandInteraction) : Voice {
+        if (Voice.guilds.has(interaction?.guild?.id)) {
+            return Voice.guilds.get(interaction?.guild?.id);
         }
 
+        const guild = interaction?.client?.guilds?.cache.get(interaction?.guildId ?? "0")
+        const member = guild?.members?.cache.get(interaction?.member?.user?.id ?? "0");
+        const channel = member?.voice?.channel;
+
+        if(channel == undefined)
+            throw new Error("You are not in a voice channel");
+
         const voice = new Voice(channel);
-        Voice.guilds.set(channel?.guild?.id, voice);
+
+        Voice.guilds.set(interaction?.guild?.id, voice);
         return voice;
     }
 
-    static leaveVoiceChannel(channel: CommandInteraction) {
-        if (Voice.guilds.has(channel?.guild?.id) == false) {
-            return;
-        }
-        Voice.guilds.get(channel?.guild?.id).disconnect();
-        Voice.guilds.delete(channel?.guild?.id);
-    }
+    private connection: VoiceConnection | undefined;
+    private channel : VoiceBasedChannel;
+    public player: Player = new Player();
 
-    static getPlayer(channel: CommandInteraction): Player {
-        return Voice.guilds.get(channel?.guild?.id).player;
-    }
-
-    constructor(interaction: CommandInteraction) {
-        const guild = interaction?.client?.guilds?.cache.get(interaction?.guildId ?? "0")
-        const member = guild?.members?.cache.get(interaction?.member?.user?.id ?? "0");
-        const voiceChannel = member?.voice?.channel;
-
-        this.connection = joinVoiceChannel({
-            channelId: voiceChannel?.id ?? "0",
-            guildId: interaction?.guild?.id as string,
-            adapterCreator: interaction?.guild?.voiceAdapterCreator as DiscordGatewayAdapterCreator,
-        });
-
-        this.player = new Player();
-
-        this.connection.subscribe(this.player.getInternalPlayer());
+    constructor(channel: VoiceBasedChannel) {
+        this.channel = channel;
     }
 
     public disconnect() {
-        this.connection.destroy();
+        if(!this.isConnected())
+            return;
+
+        this.connection?.disconnect();
+        this.connection?.destroy();
+        this.connection = undefined;
+    }
+
+    public connect() {
+        if(this.isConnected())
+            return;
+
+        this.connection = joinVoiceChannel({
+            channelId: this.channel.id,
+            guildId: this.channel.guild?.id,
+            adapterCreator: this.channel.guild?.voiceAdapterCreator,
+        });
+
+        this.connection.subscribe(this.player.getInternalPlayer());
     }
 
     public queue(url: string) {
         this.player.addToQueue(url);
         this.player.playNext();
+    }
+
+    public isConnected() {
+        if(this.connection == undefined)
+            return false;
+
+        return this.connection.state.status == "ready";
     }
 }

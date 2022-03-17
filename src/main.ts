@@ -2,7 +2,7 @@ import { REST } from '@discordjs/rest';
 import { Client, Intents } from 'discord.js';
 import { Routes } from 'discord-api-types/v9';
 import config from "./config";
-import { Command, Ping, Search, YouTube, Leave, Skip } from './commands';
+import { Command, Ping, Search, YouTube, Leave, Skip, Join } from './commands';
 
 const client = new Client({intents: [Intents.FLAGS.GUILDS, Intents.FLAGS.GUILD_VOICE_STATES]});
 const commands: { [key: string]: Command } = {
@@ -10,7 +10,8 @@ const commands: { [key: string]: Command } = {
     search: new Search(),
     youtube: new YouTube(),
     leave: new Leave(),
-    skip: new Skip()
+    skip: new Skip(),
+    join: new Join()
 };
 
 client.once('ready', async () => {
