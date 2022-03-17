@@ -42,13 +42,17 @@ export class Voice {
 
             const random = Math.floor(Math.random() * config.sounds.shutdown.links.length);
             this.queue(config.sounds.shutdown.links[random]);
-        }
 
-        this.player.onTrackEnd(() => {
-            this.connection?.disconnect();
-            this.connection?.destroy();
-            this.connection = undefined;
-        });
+            this.player.onTrackEnd(() => this.dispose());
+        } else {
+            this.dispose();
+        }
+    }
+
+    private dispose() {
+        this.connection?.disconnect();
+        this.connection?.destroy();
+        this.connection = undefined;
     }
 
     public connect() {
