@@ -45,4 +45,8 @@ export class Player {
     public getQueueSize(): number {
         return this.queue.getQueueSize();
     }
+
+    public onTrackEnd(callback: () => void) {
+        this.player.once(AudioPlayerStatus.Idle, callback);
+    }
 }

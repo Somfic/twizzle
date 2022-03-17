@@ -35,9 +35,14 @@ export class Voice {
         if(!this.isConnected())
             return;
 
-        this.connection?.disconnect();
-        this.connection?.destroy();
-        this.connection = undefined;
+        // Windows shutdown
+        this.queue("https://www.youtube.com/watch?v=Gb2jGy76v0Y");
+
+        this.player.onTrackEnd(() => {
+            this.connection?.disconnect();
+            this.connection?.destroy();
+            this.connection = undefined;
+        });
     }
 
     public connect() {
@@ -51,6 +56,9 @@ export class Voice {
         });
 
         this.connection.subscribe(this.player.getInternalPlayer());
+
+        // Windows startup
+        this.queue("https://www.youtube.com/watch?v=7nQ2oiVqKHw");
     }
 
     public queue(url: string) {
