@@ -1,11 +1,12 @@
 import { DiscordGatewayAdapterCreator, joinVoiceChannel, VoiceConnection } from "@discordjs/voice";
 import { CommandInteraction, VoiceBasedChannel, VoiceChannel, VoiceState } from "discord.js";
+import config from "./config";
 import { Player } from "./player";
 
 export class Voice {
     private static guilds = new Map();
 
-    static fromInteraction(interaction: CommandInteraction) : Voice {
+    static fromInteraction(interaction: CommandInteraction): Voice {
         if (Voice.guilds.has(interaction?.guild?.id)) {
             return Voice.guilds.get(interaction?.guild?.id);
         }
@@ -14,7 +15,7 @@ export class Voice {
         const member = guild?.members?.cache.get(interaction?.member?.user?.id ?? "0");
         const channel = member?.voice?.channel;
 
-        if(channel == undefined)
+        if (channel == undefined)
             throw new Error("You are not in a voice channel");
 
         const voice = new Voice(channel);
@@ -24,7 +25,7 @@ export class Voice {
     }
 
     private connection: VoiceConnection | undefined;
-    private channel : VoiceBasedChannel;
+    private channel: VoiceBasedChannel;
     public player: Player = new Player();
 
     constructor(channel: VoiceBasedChannel) {
@@ -32,11 +33,16 @@ export class Voice {
     }
 
     public disconnect() {
-        if(!this.isConnected())
+        if (!this.isConnected())
             return;
 
-        // Windows shutdown
-        this.queue("https://www.youtube.com/watch?v=Gb2jGy76v0Y");
+        // Shutdown sounds
+        if (config.sounds.shutdown.playSound) {
+            this.clearQueue();
+
+            const random = Math.floor(Math.random() * config.sounds.shutdown.links.length);
+            this.queue(config.sounds.shutdown.links[random]);
+        }
 
         this.player.onTrackEnd(() => {
             this.connection?.disconnect();
@@ -46,7 +52,7 @@ export class Voice {
     }
 
     public connect() {
-        if(this.isConnected())
+        if (this.isConnected())
             return;
 
         this.connection = joinVoiceChannel({
@@ -57,8 +63,11 @@ export class Voice {
 
         this.connection.subscribe(this.player.getInternalPlayer());
 
-        // Windows startup
-        this.queue("https://www.youtube.com/watch?v=7nQ2oiVqKHw");
+        // Startup sounds
+        if (config.sounds.startup.playSound) {
+            const random = Math.floor(Math.random() * config.sounds.startup.links.length);
+            this.queue(config.sounds.startup.links[random]);
+        }
     }
 
     public queue(url: string) {
@@ -66,8 +75,12 @@ export class Voice {
         this.player.playNext();
     }
 
+    public clearQueue() {
+        this.player.queue.clear();
+    }
+
     public isConnected() {
-        if(this.connection == undefined)
+        if (this.connection == undefined)
             return false;
 
         return this.connection.state.status == "ready";
