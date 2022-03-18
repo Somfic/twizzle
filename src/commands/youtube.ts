@@ -5,15 +5,15 @@ import { Voice } from "../voice";
 import Command from "./command";
 
 export default class YouTube extends Command {
-    constructor() {
+    constructor(client: any) {
         super(new SlashCommandBuilder()
             .setName("youtube")
             .setDescription("Play audio from YouTube")
-                .addStringOption(new SlashCommandStringOption()
+            .addStringOption(new SlashCommandStringOption()
                 .setName("url")
                 .setRequired(true)
                 .setDescription("The video url")
-        ));
+            ));
     }
     
     public async handler(interaction: CommandInteraction): Promise<void> {

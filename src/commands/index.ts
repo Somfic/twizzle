@@ -5,5 +5,6 @@ import YouTube from "./youtube";
 import Command from "./command";
 import Skip from "./skip";
 import Join from "./join";
+import Spotify from "./spotify";
 
-export { Leave, Ping, Search, YouTube, Skip, Command, Join };
+export { Leave, Ping, Search, YouTube, Skip, Command, Join, Spotify };

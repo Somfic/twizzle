@@ -1,7 +1,7 @@
 import { AudioPlayer, createAudioPlayer } from "@discordjs/voice";
 
 class State {
-    public player: AudioPlayer = createAudioPlayer();
+    public isEnabled: boolean = true;
 }
 
 export const state = new State();

@@ -3,7 +3,7 @@ import { CommandInteraction } from "discord.js";
 import Command from "./command";
 
 export default class Ping extends Command {
-    constructor() {
+    constructor(client: any) {
         super(new SlashCommandBuilder().setName("ping").setDescription("Pong"));
     }
     

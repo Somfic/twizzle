@@ -5,7 +5,7 @@ import config from "../config";
 import Command from "./command";
 
 export default class Search extends Command {
-    constructor() {
+    constructor(client: any) {
         const command: Omit<SlashCommandBuilder, "addSubcommand" | "addSubcommandGroup"> = new SlashCommandBuilder()
         .setName("search")
         .setDescription("Finds a song on spotify")

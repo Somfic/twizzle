@@ -2,16 +2,26 @@ import { REST } from '@discordjs/rest';
 import { Client, Intents } from 'discord.js';
 import { Routes } from 'discord-api-types/v9';
 import config from "./config";
-import { Command, Ping, Search, YouTube, Leave, Skip, Join } from './commands';
+import { Command, Ping, Search, YouTube, Leave, Skip, Join, Spotify } from './commands';
+import { Player } from 'discord-music-player';
 
-const client = new Client({intents: [Intents.FLAGS.GUILDS, Intents.FLAGS.GUILD_VOICE_STATES]});
+global.AbortController = require("node-abort-controller").AbortController;
+
+const client = new Client({intents: [Intents.FLAGS.GUILDS, Intents.FLAGS.GUILD_MESSAGES, Intents.FLAGS.GUILD_VOICE_STATES]});
+
+
+const player = new Player(client);
+// You can define the Player as *client.player* to easily access it.
+(client as any).player = player;
+
 const commands: { [key: string]: Command } = {
-    ping: new Ping(),
-    search: new Search(),
-    youtube: new YouTube(),
-    leave: new Leave(),
-    skip: new Skip(),
-    join: new Join()
+    ping: new Ping(client),
+    search: new Search(client),
+    youtube: new YouTube(client),
+    leave: new Leave(client),
+    skip: new Skip(client),
+    join: new Join(client),
+    spotify: new Spotify(client)
 };
 
 client.once('ready', async () => {
@@ -20,8 +30,10 @@ client.once('ready', async () => {
     
     if(process.env.NODE_ENV === 'development') {
         client.user?.setStatus('idle');
+        client.user?.setActivity("Playing Twizzle Developer 2022");
     } else {
         client.user?.setStatus('online');
+        client.user?.setActivity("Playing Twizzle");
     }
 });
 

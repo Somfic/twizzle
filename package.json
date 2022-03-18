@@ -15,10 +15,13 @@
     "@discordjs/voice": "^0.8.0",
     "@types/spotify-web-api-node": "^5.0.7",
     "discord-api-types": "^0.29.0",
+    "discord-music-player": "^8.3.1",
     "discord.js": "^13.6.0",
     "dotenv": "^16.0.0",
     "ffmpeg-static": "^4.4.1",
     "libsodium-wrappers": "^0.7.9",
+    "node-abort-controller": "^3.0.1",
+    "spotify-to-yt": "^1.1.1",
     "spotify-web-api-node": "^5.0.2",
     "ytdl-core": "^4.11.0"
   },

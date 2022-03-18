@@ -4,7 +4,7 @@ import { Voice } from "../voice";
 import Command from "./command";
 
 export default class Join extends Command {
-    constructor() {
+    constructor(client: any) {
         const command = new SlashCommandBuilder()
                         .setName("join")
                         .setDescription("ADD the bot from ur channle");

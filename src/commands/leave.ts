@@ -4,7 +4,7 @@ import { Voice } from "../voice";
 import Command from "./command";
 
 export default class Leave extends Command {
-    constructor() {
+    constructor(client: any) {
         const command = new SlashCommandBuilder()
                         .setName("leave")
                         .setDescription("Remove the bot from ur channle");
