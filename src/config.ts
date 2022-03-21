@@ -1,6 +1,8 @@
 require('dotenv').config();
 
 export default {
+    env: process.env.NODE_ENV,
+    
     discord: {
         id: process.env.DISCORD_ID ?? '',
         token: process.env.DISCORD_TOKEN ?? '',
