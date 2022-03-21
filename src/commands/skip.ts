@@ -1,6 +1,6 @@
 import { SlashCommandBuilder } from "@discordjs/builders";
 import { CommandInteraction } from "discord.js";
-import { Voice } from "../voice";
+// import { Voice } from "../voice";
 import Command from "./command";
 
 export default class Skip extends Command {
@@ -14,12 +14,10 @@ export default class Skip extends Command {
         this.client = client;
     }
     
-    public async handler(channel: CommandInteraction): Promise<void> {
-        const guild = channel?.client?.guilds?.cache.get(channel?.guildId ?? "0")
-        const member = guild?.members?.cache.get(channel?.member?.user?.id ?? "0");
-        const _channel = member?.voice?.channel;
+    public async handler(interaction: CommandInteraction): Promise<void> {
+        const { guild } = this.transformInteraction(interaction);
 
         this.client.player.getQueue(guild).skip();
-        channel.followUp("Skipping! :)")
+        interaction.followUp("Skipping! :)")
     }
 }
