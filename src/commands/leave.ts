@@ -1,21 +1,27 @@
 import { SlashCommandBuilder } from "@discordjs/builders";
 import { CommandInteraction } from "discord.js";
-import { Voice } from "../voice";
+import { Client } from "../client";
 import Command from "./command";
 
 export default class Leave extends Command {
+    private client: Client;
     constructor(client: any) {
         const command = new SlashCommandBuilder()
                         .setName("leave")
                         .setDescription("Remove the bot from ur channle");
         super(command);
+        this.client = client;
     }
     
-    public async handler(channel: CommandInteraction): Promise<void> {
-        const voice = Voice.fromInteraction(channel);
-
-        voice.disconnect();
+    public async handler(interaction: CommandInteraction): Promise<void> {
+        const { guild } = this.transformInteraction(interaction);
+        try {
+            this.client.player.getQueue((guild as any))?.destroy(true);
         
-        channel.followUp("Goodbye:(");
+            interaction.followUp("Goodbye:(");
+        } catch(e) {
+
+        }
+        
     }
 }
